@@ -31,7 +31,8 @@ raw_data$diagnosis <- factor(raw_data$diagnosis) %>%
 #tidy format - put biomarkers in a column
 tidy_data <- raw_data %>%
   pivot_longer(cols = c(creatinine, LYVE1, REG1B, TFF1, REG1A, plasma_CA19_9), 
-               names_to = "biomarker", values_to = "levels" )
+               names_to = "biomarker", values_to = "levels" ) %>% 
+  filter(!is.na(levels))
 #sort biomarkers 
 tidy_data$biomarker <- factor(tidy_data$biomarker, 
                               levels = c("creatinine", "LYVE1", "REG1B", "TFF1", "plasma_CA19_9", "REG1A"))
@@ -47,7 +48,32 @@ tidy_data %>%
   ggplot(aes(x = biomarker, y = levels, color = diagnosis )) + 
   geom_boxplot() + 
   scale_y_continuous(trans = "log10") + 
+  facet_grid(~sex) + 
   theme_bw()
+#levels of some biomarkers seem to be different in groups with cancer
 
+#distribution of diagnosis by sex 
+#by sex
+table(raw_data$sex, raw_data$diagnosis) %>% prop.table(1)
+#by diagnosis 
+table(raw_data$sex, raw_data$diagnosis) %>% prop.table(2)
+
+# it seems that male are more prone to get cancer 
+
+## distribution of diagnosis by age 
+tidy_data %>% group_by(age, diagnosis, biomarker) %>%
+  summarise(avg_lvs = mean(levels)) %>% 
+  ggplot(aes(x = as.numeric(age), y = avg_lvs, color = diagnosis)) + 
+  geom_line() +
+  labs(title = "Figure Biomarkers concentration in diagnosis group vs age", 
+       x = "age", y = "concentration") +
+  scale_x_continuous(breaks = seq(25,90,5)) + 
+  scale_y_continuous(trans = "log10") +
+  facet_wrap(~biomarker, ncol = 1) +
+  theme_bw()
+#some biomarkers seem to be more impotant over time 
+
+## proportion of diagnosis by cohort 
+table(raw_data$sample_origin, raw_data$diagnosis)
 
 
