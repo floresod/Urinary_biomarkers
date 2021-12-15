@@ -492,4 +492,15 @@ for(i in 1:length(model_names)) {
 #Arrange results 
 model_i_perf <- model_i_perf %>%
   arrange(desc(Accuracy_i))
+#print
 model_i_perf
+
+
+
+### analysis of errors ### 
+test_sex <- data2[ind_test,]$sex
+test_y <- test_set$y
+
+errors <- pred_ens_i %>% 
+  mutate(sex = test_sex, 
+         y = test_y)
