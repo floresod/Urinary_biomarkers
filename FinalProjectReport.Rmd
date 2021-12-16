@@ -1,0 +1,36 @@
+---
+title: "Choose Your Own Project: Pancreatic ductal adenocarcinoma biomarkers"
+author: "Daniel Flores Orozco"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Introduction 
+
+Pancreatic ductal adenocarcinoma (PDAC) is the most common pancreatic neoplasm and is considered a highly aggressive and lethal cancer (Sarantis et al., 2020). In fact, less than 20% of individuals diagnosed with PDAC survive the first year, and less than 10% survived more than five years (Debernardi et al., 2020; Sarantis et al., 2020). The poor prognosis is mainly attributed to late diagnosis and the lack of efficient treatments during an early stage. However, when the disease is detected in the early stages, the probability of surviving more than five years increases up to 70% (Debernardi et al., 2020). Therefore, the development of novel tests for the early detection of PDAC is essential to improve the patients' prognosis. 
+
+Debernardi et al. (2020) identified a group of proteins in the urine that could potentially serve as biomarkers to detect PDAC. 
+
+
+
+
+# 2. Methodology 
+
+## 2.1 Data exploration 
+
+
+## 2.2 Models development 
+
+
+# 3. Results 
+
+
+
+# 4. Conclusion 
+
+
+# 5. References  

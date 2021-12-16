@@ -5,7 +5,6 @@
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
-if(!require(ggpubr)) install.packages("ggpubr", repos = "http://cran.us.r-project.org")
 #if(!require(groom)) install.packages("ggpubr", repos = "http://cran.us.r-project.org")
 
 #load libraries 
@@ -80,27 +79,92 @@ tidy_data %>% group_by(age, diagnosis, biomarker) %>%
 ## proportion of diagnosis by cohort 
 table(raw_data$sample_origin, raw_data$diagnosis)
 
+#### Heat map of observations ### 
 
-
-### MODELS ###
 #create a data frame with center data  
 data <-  tidy_data %>% 
   group_by(biomarker) %>%
   mutate(norm_lvs = log(levels),
          norm_lvs = ifelse(norm_lvs == "-Inf", -15, norm_lvs), #set -inf values to -15 (large change)
          avg = mean(norm_lvs, na.rm = TRUE), #average of each biomarker to center data
-         norm_lvs = norm_lvs/avg) %>% #center observations %>% 
-  dplyr:: select(-levels, -avg) %>% 
-  pivot_wider(names_from = biomarker, values_from = norm_lvs) #final shape
+         norm_lvs = norm_lvs/avg, 
+         y = ifelse(diagnosis == "cancer", 
+                    "cancer",
+                    "benign") %>% factor(levels = c("cancer", "benign"))) %>% #center observations %>% 
+  dplyr:: select(-levels, -avg, -diagnosis) %>% 
+  pivot_wider(names_from = biomarker, values_from = norm_lvs)
 
 ## extra modification ##
 #make sex factor 
 data$sex <-factor(data$sex)
 
-# Add 'y' column with the diagnosis: benign or cancer
-data <- data %>%
-  mutate(y = ifelse(diagnosis == "cancer", "cancer", "benign") %>% factor(levels = c("cancer", "benign"))) %>% 
-  dplyr::select(-diagnosis)
+# save sample's information for annotation
+sample_info <- matrix_hm %>% dplyr::select(sample_id, age, sex, y)
+
+# final matrix 
+matrix_hm <- data %>%
+  dplyr::select(-sample_id, -age, -sex, -y) %>% 
+  as.matrix() %>% 
+  `rownames<-`(sample_info$sample_id)
+
+#install package for heatmap 
+if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
+library(pheatmap)
+
+# diagnosis annotation 
+sample_diag <- data.frame(diagnosis = sample_info$y) %>% `rownames<-`(sample_info$sample_id)
+
+#color for diagnosis annotation
+my_colors <-  c("darkgreen", "orange")
+names(my_colors) <- c("benign", "cancer")
+my_colors <- list(diagnosis = my_colors)
+
+### heat map ### 
+pheatmap(matrix_hm, cluster_rows = FALSE, cluster_cols = FALSE, 
+         annotation_row = sample_diag, 
+         annotation_color = my_colors,
+         color = colorRampPalette(colors = c("red", "white", "blue", "darkblue"), space = "Lab")(500),
+         show_rownames = FALSE,
+         angle_col = 90, 
+         main = "Figure 3 Biomarkers abundance in samples") 
+
+###### PCoA to check similarities #####
+#install package 
+if(!require(vegan)) install.packages("vegan", repos = "http://cran.us.r-project.org")
+library(vegan)
+
+#create matrix 
+matrix_pcoa <- raw_data %>% 
+  dplyr::select(creatinine, LYVE1, REG1B, TFF1, REG1A, plasma_CA19_9) %>%
+  `rownames<-`(raw_data$sample_id)
+
+#calculate distance 
+dist.res <-  vegdist(matrix_pcoa, method = "bray", na.rm = TRUE)
+mds.res = cmdscale(dist.res, eig = TRUE, x.ret = TRUE)
+mds_varperc = round(mds.res$eig/sum(mds.res$eig)*100, 1)
+
+##### Convert data into dataframe for ggplot #####
+mds_data = data.frame(sample_id = row.names(mds.res$points), 
+                             X=mds.res$points[,1], 
+                             Y=mds.res$points[,2]) %>% 
+  left_join(sample_info) # include sample's details 
+
+## plot PCoA ## 
+mds_data %>% 
+  ggplot(aes(x = X, y = Y, color = y, shape = sex)) + 
+  geom_point(alpha = 0.8) +
+  labs(title = "PCoA ordination", 
+       x = paste("PC1 - ", mds_varperc[1], "%", sep = ""), 
+       y = paste("PC2 -", mds_varperc[2], "%", sep = "")) + 
+  scale_color_manual("diagnosis", values = c("orange", "darkgreen")) + 
+  theme_bw()
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### MODELS ####
+
+data <- data %>% 
+  pivot_wider(names_from = biomarker, values_from = norm_lvs) #final shape
 
 # create train and test set 
 set.seed(14, sample.kind = "Rounding")
