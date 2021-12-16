@@ -7,6 +7,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(digits = 4, scipen = 999)
 ```
 
 # 1. Introduction 
@@ -20,13 +21,75 @@ In this document, different Machine Learning algorithms, including random forest
 
 
 # 2. Methodology
+```{r load data, echo=FALSE, message=FALSE, warning=FALSE}
+load("rda/raw_data.rda")
+
+```
+
 
 ## 2.1 Database
-The pancreatic cancer biomarkers data was downloaded from the database repository Kaggle (https://www.kaggle.com/johnjdavisiv/urinary-biomarkers-for-pancreatic-cancer).  
+The pancreatic cancer biomarkers data was downloaded from the database repository Kaggle (https://www.kaggle.com/johnjdavisiv/urinary-biomarkers-for-pancreatic-cancer). The original data contain 14 columns: *`r colnames(raw_data)`*. A description of each column information is presented in **Table 1**. The database contained 590 entries of the same number of patients. The patients' ages range from 26-89 years, with 299 males and 291 females. Around 33.7% of the entries came from patients diagnosed with cancer, and the rest from healthy or other benign pancreatic diagnostic.   
+
+```{r columns details, echo=FALSE, message=FALSE, warning=FALSE}
+#load file 
+load("rda/columns_details.rda")
+
+#load kable library 
+if(!require(kableExtra)) install.packages("kableExtra", repos = "http://cran.us.r-project.org")
+library(kableExtra)
+
+#print
+column_details %>% 
+  kbl(caption = "Columns details in original data set", booktabs = TRUE) %>%
+  kable_classic(latex_options = "hold_position") %>% 
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1, italic = TRUE) %>% 
+  column_spec(2, width = "30em")
+
+```
+
+Since the information *patient_cohort*, *sample_origin*, was not useful for the development of the different models, they were removed. Similarly, *stage*, and *bening_sample_diagnosis* were not included as the number of samples in each group was small. 
+
 
 ## 2.2 Data exploration 
 
-The first step was to explore the 
+### 2.2.1 Diagnosis by sex 
+The first step was to explore if PDAC diagnosis was similar in male and female patients. A contingency table combined with a Chi-squared test were used to evaluate this. The results indicated that cancer diagnosis was significantly (p-value = 0.0001) more common in males than females. For instance, 58.3% of the cancer group were males.
+
+### 2.2.2 Diagnosis by age
+The distribution of diagnosis by age was also evaluated (Fig.1). This analysis revealed that cancer was most common in older people. Samples from people between 65-85 were more likely to be from the cancer group. For instance, more than 93% of cancer cases came from people older than 50 years. 
+
+```{r fig1, echo=FALSE, warning=FALSE, echo=FALSE}
+#load fig.1 
+load("figs/fig.1")
+fig.1
+
+```
+
+
+### 2.2.3 Biomarkers by diagnosis group and sex 
+
+The evaluation of the concentration of the levels of the different biomarkers revealed that all of them, except creatinine, were overexpressed in the cancer groups compared to healthy and benign groups, as seen in **Fig. 2**. Moreover, **Fig.2** also shows that there is no noticeable difference in levels of the different biomarkers between males and females.
+
+```{r fig2, echo=FALSE, warning=FALSE, message=FALSE}
+#load
+load("figs/fig.2")
+#print
+fig.2
+
+```
+
+### 2.2.4 Biomarkers by age and diagnosis group
+Figure 3 shows the average concentration of each of the biomarkers in cancer, benign, and healthy groups at different ages. This figure shows that the creatine levels are similar and steady across all ages, which suggests that this protein may not be a good predictor. On the other hand, the levels of the other biomarkers seem to be constantly higher in cancer samples across all ages. These differences are substantially larger in older patients, which appears to result from a drop of these proteins in healthy patients rather than an increase in sick patients. 
+
+```{r biomarkers by ageanddiag, echo=FALSE, warning=FALSE, fig.height=10, fig.width=8}
+#load
+load("figs/fig.3")
+#print
+fig.3
+
+```
+
 
 
 ## 2.2 Models development 

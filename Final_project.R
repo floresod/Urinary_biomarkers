@@ -5,12 +5,14 @@
 if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+if(!require(scales)) install.packages("scales", repos = "http://cran.us.r-project.org")
 #if(!require(groom)) install.packages("ggpubr", repos = "http://cran.us.r-project.org")
 
 #load libraries 
 library(tidyverse)
 library(caret)
 library(ggplot2)
+library(scales)
 
 #adjust R options 
 options(digits = 4, scipen = 999)
@@ -18,40 +20,67 @@ options(digits = 4, scipen = 999)
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 #### data ####
+
+## data was downloaded from https://www.kaggle.com/johnjdavisiv/urinary-biomarkers-for-pancreatic-cancer ## 
+# file is saved as 'raw_data.csv' 
+
 #load data 
-raw_data <- read.csv(file = "raw_data.csv", check.names = FALSE)
-#correct col1: sample_id
+raw_data <- read.csv(file = "data/raw_data.csv", check.names = FALSE)
+
+#correct col1 name: sample_id
 colnames(raw_data)[1] <- "sample_id"
 
-#adjust levels of diagnosis levels 
+## defined level of different factor ## 
+# patient_cohort 
+raw_data$patient_cohort <- factor(raw_data$patient_cohort)
+# sample origin 
+raw_data$sample_origin <-  factor(raw_data$sample_origin)
+# sex 
+raw_data$sex <- factor(raw_data$sex)
+# diagnosis
 raw_data$diagnosis <- factor(raw_data$diagnosis) %>% 
   fct_recode("healthy" = "1", "benign" = "2", "cancer" = "3" )
+# stage 
+raw_data$stage <- factor(raw_data$stage)
+# benign diagnosis 
+raw_data$benign_sample_diagnosis <- factor(raw_data$benign_sample_diagnosis)
 
+## ## ## ## ## 
+
+#save as .rda file for PDF report 
+save(raw_data, file = "rda/raw_data.rda")
+
+## load documentation file with column's details ##
+column_details <- read.csv("data/Debernardi et al 2020 documentation.csv")[,-2] #remove 2nd column with not necessary information
+#change columns names 
+names(column_details) <- c("Column name", "Details")
+#save for PDF report 
+save(column_details, file = "rda/columns_details.rda")
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+
+#### data exploration ####
+
+### Features of the raw data ### 
+summary(raw_data)
+
+# proportion of healthy and cancer 
+table(raw_data$diagnosis) %>% prop.table()
+
+### Shape data for more analysis  ###
 #tidy format - put biomarkers in a column
 tidy_data <- raw_data %>% dplyr::select(-stage, -patient_cohort, -sample_origin, -stage, -benign_sample_diagnosis) %>% 
   pivot_longer(cols = c(creatinine, LYVE1, REG1B, TFF1, REG1A, plasma_CA19_9), 
                names_to = "biomarker", values_to = "levels" ) %>% 
   filter(!is.na(levels))
+
 #sort biomarkers 
 tidy_data$biomarker <- factor(tidy_data$biomarker, 
                               levels = c("creatinine", "LYVE1", "REG1B", "TFF1", "plasma_CA19_9", "REG1A"))
+## ## ## 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-
-#### data exploration ####
-#data features 
-summary(raw_data)
-
-# biomarkers in each diagnosis group 
-tidy_data %>%
-  ggplot(aes(x = biomarker, y = levels, color = diagnosis )) + 
-  geom_boxplot() + 
-  scale_y_continuous(trans = "log10") + 
-  facet_grid(~sex) + 
-  theme_bw()
-#levels of some biomarkers seem to be different in groups with cancer
-
-#distribution of diagnosis by sex 
+### distribution of diagnosis by sex ### 
 #by sex
 table(raw_data$sex, raw_data$diagnosis) %>% prop.table(1)
 #by diagnosis 
@@ -60,26 +89,77 @@ table(raw_data$sex, raw_data$diagnosis) %>% prop.table(2)
 # statistical analysis #
 sex_diag <- table(raw_data$sex, raw_data$diagnosis)
 chisq.test(sex_diag)
-
 # it seems that male are more prone to get cancer 
 
+### distribution of diagnosis by age ### 
+my_colors <- c("#56B4E9", "#0072B2", "#D55E00")
+
+#Figure 1 Diagnosis by age 
+fig.1 <- table(raw_data$age, raw_data$diagnosis) %>% data.frame() %>%
+  mutate(age = as.character(Var1) %>% as.numeric()) %>%
+  ggplot(aes(x = age, y = Freq, fill = Var2)) +  
+  geom_bar(stat = "identity", position=position_dodge()) +
+  labs(title = "Figure 1. Diagnosis by age", 
+       x = "age (years)", 
+       y = "number of cases") +
+  scale_y_continuous(breaks = seq(0,12,2)) +
+  scale_x_continuous(breaks = seq(25, 90, 5)) + 
+  scale_fill_manual("diagnosis", values = my_colors ) + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+#print
+fig.1
+#save 
+save(fig.1, file = "figs/fig.1")
+
+# proportion of cancer cases > 50 years 
+raw_data %>% filter(diagnosis == "cancer") %>% summarise(prop.50 = mean(age >= 50))
+
+
+### Distribution of biomarkers' concentrations by diagnosis group ###
+# figure 3 biomarkers by diagnosis nad sex 
+fig.2 <- tidy_data %>%
+  mutate(sex = ifelse(sex == "F", "Female", "Male")) %>% 
+  ggplot(aes(x = biomarker, y = levels, color = diagnosis )) + 
+  geom_boxplot() +
+  labs(title = "Figure 2. Biomarkers levels by diagnosis group and sex", 
+       x = "biomarker", 
+       y = "concentration") + 
+  scale_y_continuous(trans = "log10", breaks = c(0, 0.01, 10, 10000) ) + 
+  scale_x_discrete(guide = guide_axis(n.dodge= 2)) +
+  scale_color_manual(values = my_colors) + 
+  facet_grid(~sex) + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+#print fig 2
+fig.2
+
+#save 
+save(fig.2, file = "figs/fig.2")
+
+
 ## distribution of diagnosis by age ##
-tidy_data %>% group_by(age, diagnosis, biomarker) %>%
+fig.3 <- tidy_data %>% 
+  group_by(age, diagnosis, biomarker) %>%
   summarise(avg_lvs = mean(levels)) %>% 
   ggplot(aes(x = as.numeric(age), y = avg_lvs, color = diagnosis)) + 
   geom_line() +
-  labs(title = "Figure Biomarkers concentration in diagnosis group vs age", 
+  labs(title = "Figure 3. Average biomarker concentration by age and diagnosis group", 
        x = "age", y = "concentration") +
   scale_x_continuous(breaks = seq(25,90,5)) + 
   scale_y_continuous(trans = "log10") +
+  scale_color_manual(values = my_colors) +
   facet_wrap(~biomarker, ncol = 1) +
   theme_bw()
-#some biomarkers seem to be more impotant over time 
 
-## proportion of diagnosis by cohort 
-table(raw_data$sample_origin, raw_data$diagnosis)
+#print figure 3 
+fig.3
+#save
+save(fig.3, file = "figs/fig.3")
 
-#### Heat map of observations ### 
+
+
+#### Heat map of observations #### 
 
 #create a data frame with center data  
 data <-  tidy_data %>% 
