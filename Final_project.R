@@ -6,13 +6,14 @@ if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-
 if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 if(!require(ggplot2)) install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 if(!require(scales)) install.packages("scales", repos = "http://cran.us.r-project.org")
-#if(!require(groom)) install.packages("ggpubr", repos = "http://cran.us.r-project.org")
+if(!require(ggpubr)) install.packages("ggpubr", repos = "http://cran.us.r-project.org")
 
 #load libraries 
 library(tidyverse)
 library(caret)
 library(ggplot2)
 library(scales)
+library(ggpubr)
 
 #adjust R options 
 options(digits = 4, scipen = 999)
@@ -158,65 +159,60 @@ fig.3
 save(fig.3, file = "figs/fig.3")
 
 
-
-#### Heat map of observations #### 
-
-#create a data frame with center data  
-data <-  tidy_data %>% 
-  group_by(biomarker) %>%
-  mutate(norm_lvs = log(levels),
-         norm_lvs = ifelse(norm_lvs == "-Inf", -15, norm_lvs), #set -inf values to -15 (large change)
-         avg = mean(norm_lvs, na.rm = TRUE), #average of each biomarker to center data
-         norm_lvs = norm_lvs/avg, 
-         y = ifelse(diagnosis == "cancer", 
-                    "cancer",
-                    "benign") %>% factor(levels = c("cancer", "benign"))) %>% #center observations %>% 
-  dplyr:: select(-levels, -avg, -diagnosis) %>% 
-  pivot_wider(names_from = biomarker, values_from = norm_lvs)
-
-## extra modification ##
-#make sex factor 
-data$sex <-factor(data$sex)
-
-# save sample's information for annotation
-sample_info <- matrix_hm %>% dplyr::select(sample_id, age, sex, y)
-
-# final matrix 
-matrix_hm <- data %>%
-  dplyr::select(-sample_id, -age, -sex, -y) %>% 
-  as.matrix() %>% 
-  `rownames<-`(sample_info$sample_id)
-
-#install package for heatmap 
-if(!require(pheatmap)) install.packages("pheatmap", repos = "http://cran.us.r-project.org")
-library(pheatmap)
-
-# diagnosis annotation 
-sample_diag <- data.frame(diagnosis = sample_info$y) %>% `rownames<-`(sample_info$sample_id)
-
-#color for diagnosis annotation
-my_colors <-  c("darkgreen", "orange")
-names(my_colors) <- c("benign", "cancer")
-my_colors <- list(diagnosis = my_colors)
-
-### heat map ### 
-pheatmap(matrix_hm, cluster_rows = FALSE, cluster_cols = FALSE, 
-         annotation_row = sample_diag, 
-         annotation_color = my_colors,
-         color = colorRampPalette(colors = c("red", "white", "blue", "darkblue"), space = "Lab")(500),
-         show_rownames = FALSE,
-         angle_col = 90, 
-         main = "Figure 3 Biomarkers abundance in samples") 
-
-###### PCoA to check similarities #####
+###### Multidimensional scaling: PCoA to evaluate similarities #####
 #install package 
 if(!require(vegan)) install.packages("vegan", repos = "http://cran.us.r-project.org")
 library(vegan)
 
-#create matrix 
+
+#Using protein panel (biomarkers) only 
+#create matrix: biomarkers only 
 matrix_pcoa <- raw_data %>% 
   dplyr::select(creatinine, LYVE1, REG1B, TFF1, REG1A, plasma_CA19_9) %>%
-  `rownames<-`(raw_data$sample_id)
+  `rownames<-`(raw_data$sample_id) %>%
+  as.matrix()
+
+#calculate distance 
+dist.res <-  vegdist(matrix_pcoa, method = "bray", na.rm = TRUE)
+mds.res = cmdscale(dist.res, eig = TRUE, x.ret = TRUE)
+mds_varperc = round(mds.res$eig/sum(mds.res$eig)*100, 1)
+
+##### Convert data into dataframe for ggplot #####
+#dataframe with sample's information
+sample_info <- raw_data %>% 
+  dplyr::select(sample_id, sex, diagnosis) %>% 
+  mutate(y = ifelse(diagnosis == "cancer", "cancer", "benign"))
+
+#table with PCoA and sample's information
+mds_data = data.frame(sample_id = row.names(mds.res$points), 
+                             X=mds.res$points[,1], 
+                             Y=mds.res$points[,2]) %>% 
+  left_join(sample_info) # include sample's details 
+
+## plot PCoA biomarkers only## 
+fig.4a <- mds_data %>% 
+  ggplot(aes(x = X, y = Y, color = y, shape = sex)) + 
+  geom_point(alpha = 0.8) +
+  labs(title = "Biomarkers only", 
+       x = paste("PC1 - ", mds_varperc[1], "%", sep = ""), 
+       y = paste("PC2 -", mds_varperc[2], "%", sep = "")) + 
+  scale_color_manual("diagnosis", values = c("#D55E00", "#56B4E9")) + 
+  guides(shape = guide_legend(override.aes = list(1)), 
+         color = guide_legend(override.aes = list(1))) +
+  theme_bw() +
+  theme(legend.title = element_text(size = 9), 
+        legend.text = element_text(size = )) 
+# print
+fig.4a
+#save for PDF report 
+save(fig.4a, file = "figs/fig.4a")
+
+#Using protein panel + age
+#create matrix: biomarkers only 
+matrix_pcoa <- raw_data %>% 
+  dplyr::select(age, creatinine, LYVE1, REG1B, TFF1, REG1A, plasma_CA19_9) %>%
+  `rownames<-`(raw_data$sample_id) %>%
+  as.matrix()
 
 #calculate distance 
 dist.res <-  vegdist(matrix_pcoa, method = "bray", na.rm = TRUE)
@@ -225,72 +221,92 @@ mds_varperc = round(mds.res$eig/sum(mds.res$eig)*100, 1)
 
 ##### Convert data into dataframe for ggplot #####
 mds_data = data.frame(sample_id = row.names(mds.res$points), 
-                             X=mds.res$points[,1], 
-                             Y=mds.res$points[,2]) %>% 
+                      X=mds.res$points[,1], 
+                      Y=mds.res$points[,2]) %>% 
   left_join(sample_info) # include sample's details 
 
 ## plot PCoA ## 
-mds_data %>% 
+fig.4b <- mds_data %>% 
   ggplot(aes(x = X, y = Y, color = y, shape = sex)) + 
   geom_point(alpha = 0.8) +
-  labs(title = "PCoA ordination", 
+  labs(title = "Biomarkers + age", 
        x = paste("PC1 - ", mds_varperc[1], "%", sep = ""), 
        y = paste("PC2 -", mds_varperc[2], "%", sep = "")) + 
-  scale_color_manual("diagnosis", values = c("orange", "darkgreen")) + 
-  theme_bw()
+  scale_color_manual("diagnosis", values = c("#D55E00", "#56B4E9")) +
+  guides(shape = guide_legend(override.aes = list(1)), 
+         color = guide_legend(override.aes = list(1))) +
+  theme_bw() +
+  theme(legend.title = element_text(size = 9), 
+        legend.text = element_text(size = ))
+  
+#print
+fig.4b
+#save
+save(fig.4b, file = "figs/fig.4b")
 
+#print fig.4 
+ggarrange(fig.4a, fig.4b, 
+          labels = c("a", "b"), 
+          ncol = 1, nrow = 2) %>%
+  annotate_figure("Figure 4. PCoA using Bray-Curtis distance")
+
+### delete objects ### 
+rm(fig.1, fig.2, fig.3, fig.4a, fig.4b, column_details, matrix_hm, matrix_pcoa, mds_data, mds.res)
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 #### MODELS ####
 
-data <- data %>% 
-  pivot_wider(names_from = biomarker, values_from = norm_lvs) #final shape
+## data for models ##
+#create a data frame with center data and with two outcomes only: benign or cancer 
+data <-  tidy_data %>% 
+  mutate(y = ifelse(diagnosis == "cancer", "cancer", "benign") %>% factor(levels = c("cancer", "benign"))) %>% 
+  group_by(biomarker) %>%
+  mutate(norm_lvs = log(levels),
+         norm_lvs = ifelse(norm_lvs == "-Inf", -15, norm_lvs), #set -inf values to -15 (below detection levels)
+         avg = mean(norm_lvs, na.rm = TRUE), #average of each biomarker to center data
+         norm_lvs = norm_lvs-avg, #center observations by subtracting group mean (diagnosis and biomarker)
+         age = as.numeric(age)) %>%  
+  dplyr:: select(-levels, -avg) %>% ungroup() %>%
+  pivot_wider(names_from = biomarker, values_from = norm_lvs)
 
-# create train and test set 
+## extra modification ##
+#make sex factor 
+data$sex <-factor(data$sex)
+
+### create train and test set ###
 set.seed(14, sample.kind = "Rounding")
-ind_test <- createDataPartition(data$y, times = 1, p = 0.20, list = FALSE) #20% of the data for testing 
+ind_test <- createDataPartition(data$y, times = 1, p = 0.30, list = FALSE) #20% of the data for testing 
 test_set <- data[ind_test,]
 train_set <- data[-ind_test,]
 
 
-### Models not using REG1A and plasma_A19_9 ### 
+#### Models not using REG1A and plasma_A19_9 ####
 
-#set x's and y in train set 
-train_x <- train_set %>%dplyr::select (-REG1A, -plasma_CA19_9, -sample_id, -y)
+#set x's and y in train set : remove unnecessary columns 
+train_x <- train_set %>%dplyr::select (-REG1A, -plasma_CA19_9, -sample_id, -y, -sex, -diagnosis)
 train_y <- train_set$y
 
 #### GLM model: was used by authors #### 
+
+#cross validation 
+train_control <- trainControl(method = "cv", number = 5)
 set.seed(112, sample.kind = "Rounding")
-glm_model <- train(x = train_x[,-2], y = train_y, # in the original paper sex was not used as predictor 
-                   method = "glm")
+glm_model <- train(x = train_x, y = train_y, # in the original paper sex was not used as predictor 
+                   method = "glm", 
+                   trControl = train_control, 
+                   family = binomial())
 
 #glm prediction
-pred_glm1 <- predict(glm_model, test_set)
+pred_glm <- predict(glm_model, test_set)
 
 #glm accuracy 
-glm1_acc <- mean(pred_glm1 == test_set$y)
-glm1_acc
+acc_glm <- mean(pred_glm == test_set$y)
+acc_glm
 
 #other performance parameters 
-cm_glm <- confusionMatrix(pred_glm1, reference = test_set$y)
+cm_glm <- confusionMatrix(pred_glm, reference = test_set$y)
 cm_glm
 
-#save results 
-res_glm <- tibble(Method = "GLM", Accuracy = glm1_acc, 
-                   Sensitivity = cm_glm$byClass[1], 
-                   Specificity = cm_glm$byClass[2])
-
-#### GLM including sex as predictor ### 
-set.seed(133, sample.kind = "Rounding")
-glm_model2 <- train(x = train_x, y = train_y, 
-                    method = "glm")
-#glm 2 prediction 
-pred_glm2 <- predict(glm_model2, test_set)
-#glm2 predictions 
-glm2_acc <- mean(pred_glm2 == test_set$y)
-glm2_acc
-#other performance parameters 
-confusionMatrix(pred_glm2, reference = test_set$y)
 
 #### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### 
 
@@ -311,51 +327,28 @@ rf_model$bestTune
 #predictions 
 pred_rf <- predict(rf_model, test_set)
 #accuracy 
-rf_acc <- mean(pred_rf == test_set$y)
+acc_rf <- mean(pred_rf == test_set$y)
+acc_rf
 
 #other performance parameters 
-confusionMatrix(pred_rf, reference = test_set$y)
+cm_rf <- confusionMatrix(pred_rf, reference = test_set$y)
+cm_rf
 
 # predictors importance 
 rf_model$finalModel$importance %>% data.frame() %>%
   arrange(desc(MeanDecreaseAccuracy))
 #this indicates sex is a bad predictor, so we will remove it 
 
-#### repeat model without sex #### 
 
-### Random forest ####
-set.seed(107, sample.kind = "Rounding")
-rf_model <- train(x = train_x[,-2], y = train_y, #remove sex
-                  method = "rf", 
-                  tuneGrid = data.frame(mtry = seq(1,20,1)), 
-                  importance = TRUE)
-
-#tuning 
-ggplot(rf_model) +
-  scale_x_continuous(breaks = seq(0,30,2)) + 
-  theme_bw()
-#best value 
-rf_model$bestTune
-
-#predictions 
-pred_rf2 <- predict(rf_model, test_set)
-#accuracy 
-rf_acc2 <- mean(pred_rf2 == test_set$y)
-
-#other performance parameters 
-cm_rf <- confusionMatrix(pred_rf2, reference = test_set$y)
-cm_rf
-
-#results 
-res_rf <- tibble(Method = "Random Forest", Accuracy = rf_acc2, 
-                 Sensitivity = cm_rf$byClass[1], 
-                 Specificity = cm_rf$byClass[2])
 
 #### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### 
 #### Knn model #### 
+train_control <- trainControl(method = "repeatedcv", repeats = 5)
 set.seed(7, sample.kind = "Rounding")
-knn_model <- train(x = train_x[,-2], y = train_y,#remove sex
-                   method = "knn", tuneGrid = data.frame(k = seq(3,50,1)))
+knn_model <- train(x = train_x, y = train_y,#remove sex
+                   method = "knn", 
+                   tuneGrid = data.frame(k = seq(3,50,1)), 
+                   trControl = train_control)
 
 #tuning 
 ggplot(knn_model, highlight = TRUE) + 
@@ -367,59 +360,51 @@ knn_model$bestTune
 #knn predictions
 pred_knn <- predict(knn_model, test_set)
 #accuracy 
-knn_acc <- mean(pred_knn == test_set$y)
-knn_acc
+acc_knn <- mean(pred_knn == test_set$y)
+acc_knn
 # other performance parameters 
 cm_knn <- confusionMatrix(pred_knn, reference = test_set$y)
 cm_knn
 
-#save results 
-res_knn <- tibble(Method = "KNN", Accuracy = knn_acc, 
-                  Sensitivity = cm_knn$byClass[1], 
-                  Specificity = cm_knn$byClass[2])
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ### 
 ### LDA model ####
 if(!require(MASS)) install.packages("MASS", repos = "http://cran.us.r-project.org")
 library(MASS)
 set.seed(145, sample.kind = "Rounding")
-lda_model <- train(x = train_x[,-2], y = train_y, method = "lda") #remove sex
+lda_model <- train(x = train_x, y = train_y, 
+                   method = "lda", 
+                   trControl = trainControl(method = "cv"))
 
 #predictions
 pred_lda <- predict(lda_model, test_set)
 # accuracy 
-lda_acc <- mean(pred_lda == test_set$y)
-lda_acc
+acc_lda <- mean(pred_lda == test_set$y)
+acc_lda
 
 #other performance parameters 
 cm_lda <- confusionMatrix(pred_lda, reference = test_set$y)
 cm_lda
 
-#save results 
-res_lda <-  tibble(Method = "LDA", Accuracy = lda_acc, 
-                   Sensitivity = cm_lda$byClass[1], 
-                   Specificity = cm_lda$byClass[2]) 
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ### 
 #### QDA model #### 
 set.seed(150, sample.kind = "Rounding")
-qda_model <- train(x = train_x[,-2], y = train_y, method = "qda") #remove sex
+qda_model <- train(x = train_x, y = train_y, 
+                   method = "qda",
+                   trControl = trainControl(method = "cv")) #remove sex
 
 #predictions
 pred_qda <- predict(qda_model, test_set)
 
 #accuracy 
-qda_acc <- mean(pred_qda == test_set$y)
-qda_acc
+acc_qda <- mean(pred_qda == test_set$y)
+acc_qda
 
 #other perforamnce parameters 
 cm_qda <- confusionMatrix(pred_qda, reference = test_set$y)
 cm_qda
 
-#save results 
-res_qda <- tibble(Method = "QDA", Accuracy = qda_acc, 
-                  Sensitivity = cm_qda$byClass[1], 
-                  Specificity = cm_qda$byClass[2])
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###  
 
@@ -428,27 +413,26 @@ if(!require(arm)) install.packages("arm", repos = "http://cran.us.r-project.org"
 library(arm)
 
 set.seed(277, sample.kind = "Rounding")
-bayesglm_model <- train(x = train_x[,-2], y = train_y, method = "bayesglm")
+bayesglm_model <- train(x = train_x, y = train_y, 
+                        method = "bayesglm", 
+                        trControl = trainControl(method = "repeatedcv"))
 
 #predictions 
 pred_bglm <- predict(bayesglm_model, test_set)
 #accuracy 
-bglm_acc <- mean(pred_bglm == test_set$y)
+acc_bglm <- mean(pred_bglm == test_set$y)
+acc_bglm
 
 #other performance parameters 
 cm_bglm <- confusionMatrix(pred_bglm, reference = test_set$y)
 cm_bglm
 
-#save results 
-res_bglm <- tibble(Method = "Bayesian GLM", Accuracy = bglm_acc, 
-                   Sensitivity = cm_bglm$byClass[1], 
-                   Specificity = cm_bglm$byClass[2])
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###
 #### Support Vector Machines with Linear Kernel Model #### 
 if(!require(kernlab)) install.packages("kernlab", repos = "http://cran.us.r-project.org")
 library(kernlab)
-temp_train <- train_x %>% dplyr::select(-sex) %>%
+temp_train <- train_x %>% 
   mutate(y = train_y)
 
 set.seed(290, sample.kind = "Rounding")
@@ -458,69 +442,84 @@ svm_model <- train(y~., data =temp_train,
 #tuning 
 ggplot(svm_model) +
   theme_bw()
+#best 
+svm_model$bestTune
 
 #predictions 
-temp_test <- test_set %>% dplyr:: select(age, age, creatinine, LYVE1, REG1B, TFF1)
+temp_test <- test_set %>% dplyr:: select(age, creatinine, LYVE1, REG1B, TFF1)
 pred_svm <- predict(svm_model, test_set)
 
 #accuracy
-svm_acc <- mean(pred_svm == test_set$y)
-
+acc_svm <- mean(pred_svm == test_set$y)
+acc_svm
 #other performance parameters 
 cm_svm <- confusionMatrix(pred_svm, reference = test_set$y)
 cm_svm
 
-#save results 
-res_svm <- tibble(Method = "SVM Linear Kernel", Accuracy = svm_acc, 
-                  Sensitivity = cm_svm$byClass[1], 
-                  Specificity = cm_svm$byClass[2])
-
 
 #### ENSEMBLE #### 
-pred_ens <- tibble(pred_glm1, pred_rf2, pred_knn, pred_lda, pred_qda, 
-                   pred_bglm, pred_svm) %>% 
+pred_ens <- data.frame(pred_glm, pred_bglm, pred_lda, pred_qda, pred_rf, pred_knn, pred_svm) %>% 
   mutate(votes = rowMeans(.=="cancer"), 
-         pred_ens = ifelse(votes >= 0.5, "cancer", "benign") %>% factor(levels = c("cancer", "benign")))
+         pred_ens = ifelse(votes >= 0.5, "cancer", "benign") %>% 
+           factor(levels = c("cancer", "benign"))) %>%
+  dplyr::select(-votes)
 
 #accuracy 
-ens_acc <- mean(pred_ens$pred_ens == test_set$y)
-ens_acc
+acc_ens <- mean(pred_ens$pred_ens == test_set$y)
+acc_ens
 
 #other performanc parameters 
 cm_ens <- confusionMatrix(pred_ens$pred_ens, reference = test_set$y)
 cm_ens
 
-#save 
-res_ens <- tibble(Method = "Ensemble:Consensus", Accuracy = ens_acc, 
-                  Sensitivity = cm_ens$byClass[1], 
-                  Specificity = cm_ens$byClass[2])
+#### results ####
+#model's names 
+model_names = c("GLM", "Bayesian GLM", "LDA", "QDA", "Random Forest",
+                "KNN", "SVM Linear Kernel", "Ensemble:Consensus")
+#final results ##
+model_perf <- data.frame(Model = character(), 
+                         Accuracy = numeric(), 
+                         Sensitivity = numeric(), 
+                         Specificity = numeric())
 
-### Models performance ####
-mod_perd <- res_bglm %>%
-  rbind(res_glm) %>%
-  rbind(res_knn) %>% 
-  rbind(res_lda) %>% 
-  rbind(res_qda) %>%
-  rbind(res_rf) %>% 
-  rbind(res_svm) %>%
-  arrange(desc(Accuracy)) %>%
-  rbind(res_ens)
+#fill table 
+for(i in 1:length(model_names)) {
+  model_perf[i,] <- data.frame(Model = model_names[i], 
+                               Accuracy = confusionMatrix(pred_ens[,i], reference = test_set$y)$overall[1] %>% as.numeric(),
+                               Sensitivity = confusionMatrix(pred_ens[,i], reference = test_set$y)$byClass[1] %>% as.numeric(), 
+                               Specificity = confusionMatrix(pred_ens[,i], reference = test_set$y)$byClass[2] %>% as.numeric())
+}
+
+#Arrange results 
+model_perf <- model_perf %>%
+  arrange(desc(Accuracy))
+#print
+model_perf
+
+
+#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###
+
+#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###
 
 #### MODEL USING other biomarkers  ########
+
 #filter out entries with NA values 
 data2 <- data %>% 
   filter(!is.na(REG1A) & !is.na(plasma_CA19_9))
 
 ### split data and create test and train data ### 
+set.seed(533, sample.kind = "Rounding")
 ind_test <- createDataPartition(data2$y, times = 1, p = 0.30, list = FALSE)
 test_set <- data2[ind_test,] %>% dplyr::select(-sex, -sample_id)
-train_x <- data2[-ind_test,] %>% dplyr::select(-sex, -sample_id, -y)
+train_x <- data2[-ind_test,] %>% dplyr::select(-sex, -sample_id, -y, -diagnosis)
 train_y <- data2[-ind_test,]$y
 
 #### GLM MODEL #### 
 set.seed(377, sample.kind = "Rounding")
 model_glm <- train(x = train_x, y =train_y,
-                   method = "glm") 
+                   method = "glm", 
+                   trControl = trainControl(method = "cv", number = 5), 
+                   family = binomial()) 
 #predictions
 pred_glm <- predict(model_glm, test_set)
 
@@ -531,7 +530,8 @@ cm_glm
 
 #### Bayesian GLM #### 
 set.seed(289, sample.kind = "Rounding")
-model_bglm <- train(x = train_x, y = train_y, method = "bayesglm")
+model_bglm <- train(x = train_x, y = train_y,
+                    method = "bayesglm")
 #predictions 
 pred_bglm <- predict(model_bglm, test_set)
 #performance 
@@ -608,8 +608,7 @@ cm_svm
 
 #### ENSEMBLE ### 
 #predictions
-pred_ens_i <- data.frame(pred_glm, pred_bglm, pred_lda, pred_qda, 
-                       pred_rf, pred_knn, pred_svm) %>%
+pred_ens_i <- data.frame(pred_glm, pred_bglm, pred_lda, pred_qda, pred_rf, pred_knn, pred_svm) %>%
   mutate(votes = rowMeans(.=="cancer"), 
          pred_ens = ifelse(votes >= 0.5, "cancer", "benign") %>% factor(levels = c("cancer", "benign"))) %>%
   dplyr::select(-votes)
