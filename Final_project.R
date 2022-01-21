@@ -196,7 +196,7 @@ fig.4a <- mds_data %>%
   labs(title = "Biomarkers only", 
        x = paste("PC1 - ", mds_varperc[1], "%", sep = ""), 
        y = paste("PC2 -", mds_varperc[2], "%", sep = "")) + 
-  scale_color_manual("diagnosis", values = c("#D55E00", "#56B4E9")) + 
+  scale_color_manual("diagnosis", values = c("#56B4E9","#D55E00")) + 
   guides(shape = guide_legend(override.aes = list(1)), 
          color = guide_legend(override.aes = list(1))) +
   theme_bw() +
@@ -232,7 +232,7 @@ fig.4b <- mds_data %>%
   labs(title = "Biomarkers + age", 
        x = paste("PC1 - ", mds_varperc[1], "%", sep = ""), 
        y = paste("PC2 -", mds_varperc[2], "%", sep = "")) + 
-  scale_color_manual("diagnosis", values = c("#D55E00", "#56B4E9")) +
+  scale_color_manual("diagnosis", values = c("#56B4E9", "#D55E00")) +
   guides(shape = guide_legend(override.aes = list(1)), 
          color = guide_legend(override.aes = list(1))) +
   theme_bw() +
@@ -495,6 +495,9 @@ model_perf <- model_perf %>%
   arrange(desc(Accuracy))
 #print
 model_perf
+
+#save table for PDF report 
+save(model_perf, file = "rda/model_perf.rda")
 
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###

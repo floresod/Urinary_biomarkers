@@ -115,11 +115,40 @@ ggarrange(fig.4a, fig.4b,
 ```
 
 
+## 2.3 Loss funtion 
+The performance of the models was evaluated based on the proportion of cases correctly identified as patient with cancer or benign condition (overall accuracy) as well as the sensitivity and specificity of the model, which were defined as follows: 
 
-## 2.2 Models development 
+$$
+sensitivity: TPR = \frac{TP}{TP+FN}
+$$
+$$
+specificity: TNR = \frac{TN}{TN+FP}
+$$
+Where $TPR$ and $TNR$ represent the true positive rate and true negative rate, respectively; $TP$ represents the true positive results, $FN$ false negative results, $TN$ true negative results, and $FP$ false positive results. 
+
+## 2.4 Models 
+The available data was fit to several different models including the  general linear model (GLM), bayesian GLM, k-nearest neighbors (KNN), linear discriminat analysis (LDA), quadratic discriminat analysis (QDA), random forest (rf), and a support-vector machine (svm) model. In a first approach, only the 4 biomarkers present in all samples (LYVE1, REG1B, TFF1, and creatinine) plus patient's age were used as predictors. In a second approach, all biomarkers and age were used as predictors, thus, only samples with information on all biomarkers were included (N = 209). 
+Since data exploration revealed that suggested that the sex of the patient was not a strong predictor,it was not included in the model developed in this project. 
+
+### 2.4.1 Models with 4 biomarkers 
+For these models, the entire data set was split into train and test set. The train set was composed of 70% of the data whereas the test set of the other 30%. All models were developed using the training set only, and then evaluated with the test set.
+
+### 2.4.2 Models with 6 biomarkers 
+For these models, the subset of samples with reported concentration of all six biomarkers (N=209) were also randomly divided into training (70%) and test sets (30%). 
 
 
 # 3. Results 
+
+The performance of the models using age, LYVE1, REG1B, and TFF1 as predictors is shown on Table 3. 
+
+```{r table3, echo=FALSE, echo=FALSE, warning=FALSE}
+load("rda/model_perf.rda")
+
+model_perf %>% 
+  kbl(caption = "Performance of model with three biomarkers and age", booktabs = TRUE) %>%
+  kable_classic()
+
+```
 
 
 
