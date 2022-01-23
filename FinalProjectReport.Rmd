@@ -3,6 +3,8 @@ title: "Choose Your Own Project: Pancreatic ductal adenocarcinoma biomarkers"
 author: "Daniel Flores Orozco"
 date: "`r Sys.Date()`"
 output: pdf_document
+fontsize: 12pt
+mainfont: "Times New Roman"
 editor_options: 
   chunk_output_type: console
 ---
@@ -18,7 +20,7 @@ Pancreatic ductal adenocarcinoma (PDAC) is the most common pancreatic neoplasm a
 
 Debernardi et al. (2020) identified a group of proteins (creatinine, LYVE1, REG1A, REG1B, TFF1, and plasma CA19-9) in the urine that could potentially serve as biomarkers to detect PDAC. Debernardi et al. (2020) developed an algorithm to differentiate cancer samples from benign samples using LYVE1, REG1B, and TFF1 levels, as well as creatinine levels and age as predictors. Using logistic regression, they achieved a sensitivity and specificity of 0.963 and 0.967, respectively.
 
-In this document, different Machine Learning algorithms, including random forest, kNN, SVM, logistic regression, and bayesian logistic regression, were used to predict if a given sample belonged to a benign or cancer group using the data provided by Debernardi et al. (2020). The ultimate objective of this project was to improve the performance reported by the original authors.  
+In this document, different Machine Learning algorithms, including random forest, kNN, SVM, logistic regression, and bayesian logistic regression, were used to predict if a given sample belonged to a benign or cancer group using the data provided by Debernardi et al. (2020). The ultimate objective of this project was to improve the performance of the model (logistic regression) used in the original manuscript.  
 
 
 
@@ -127,32 +129,62 @@ $$
 Where $TPR$ and $TNR$ represent the true positive rate and true negative rate, respectively; $TP$ represents the true positive results, $FN$ false negative results, $TN$ true negative results, and $FP$ false positive results. 
 
 ## 2.4 Models 
-The available data was fit to several different models including the  general linear model (GLM), bayesian GLM, k-nearest neighbors (KNN), linear discriminat analysis (LDA), quadratic discriminat analysis (QDA), random forest (rf), and a support-vector machine (svm) model. In a first approach, only the 4 biomarkers present in all samples (LYVE1, REG1B, TFF1, and creatinine) plus patient's age were used as predictors. In a second approach, all biomarkers and age were used as predictors, thus, only samples with information on all biomarkers were included (N = 209). 
-Since data exploration revealed that suggested that the sex of the patient was not a strong predictor,it was not included in the model developed in this project. 
+The available data was fit to several different models, including the general linear model (GLM), bayesian GLM, k-nearest neighbors (KNN), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA), random forest (rf), and a support-vector machine (SVM) model. In a first approach, only the four biomarkers present in all samples (LYVE1, REG1B, TFF1, and creatinine) plus the patient's age were used as predictors. In a second approach, all biomarkers and age were used as predictors. Thus, only samples with information on all biomarkers were included (N = 209). Since data exploration suggested that the sex of the patient was not a strong predictor, it was not included in the model developed in this project. The caret R package was used for cross-validation of all models to ensure that overfitting was avoided. A final ensemble with prediction based on the majority of votes was also developed and evaluated. The performance of the models was then compared to assess which set proteins would be better predictors of PDCA. 
 
 ### 2.4.1 Models with 4 biomarkers 
-For these models, the entire data set was split into train and test set. The train set was composed of 70% of the data whereas the test set of the other 30%. All models were developed using the training set only, and then evaluated with the test set.
+For these models, the entire data set was split into train and test sets. The train set was composed of 70% of the data, whereas the test set of the other 30%. All models were developed using the training set only and then evaluated with the test set.
 
 ### 2.4.2 Models with 6 biomarkers 
-For these models, the subset of samples with reported concentration of all six biomarkers (N=209) were also randomly divided into training (70%) and test sets (30%). 
+For these models, the subset of samples with a reported concentration of all six biomarkers (N=209) was also randomly divided into training (70%) and test sets (30%). 
 
 
-# 3. Results 
+# 3. Results
 
-The performance of the models using age, LYVE1, REG1B, and TFF1 as predictors is shown on Table 3. 
+## 3.1 Three biomarkers + age models
 
-```{r table3, echo=FALSE, echo=FALSE, warning=FALSE}
+The performance of the models using age, LYVE1, REG1B, and TFF1 as predictors is shown in Table 2. The general linear model (GLM, model used in the original study) achieved an accuracy of 0.8202 with sensitivity and specificity values of 0.667 and  0.8983, respectively. In terms of accuracy, only the KNN (0.8483) and LDA (0.8315) models performed better than the GLM. The bayesian GLM, RF and the ensemble (consensus) performed similarly to the GLM, whereas the SVM linear kernel and QDA achieved lower accuracy. The sensitivity was comparable between all models (0.6333-0.6667), although the QDA model achieved the highest value of 0.8333. in terms of Specificity, the KNN (0.9407) was substantially better than the GLM (0.8983). 
+In general, the results indicated that the KNN models with the three biomarkers and age as predictors was the best option to predict if a patient had cancer or not. The results also suggested that with these predictors, there was some limitation preventing most models from achieving sensitivity values greater than 0.67. 
+
+```{r table2, echo=FALSE, warning=FALSE}
 load("rda/model_perf.rda")
 
 model_perf %>% 
-  kbl(caption = "Performance of model with three biomarkers and age", booktabs = TRUE) %>%
-  kable_classic()
+  kbl(caption = "Performance of models with three biomarkers and age as preditors", booktabs = TRUE) %>%
+  kable_classic(latex_options = "hold_position")
 
 ```
 
+## 3.2 All biomarkers + age models 
+
+The performance of the models using age and all biomarkers are shown in Table 3. The results indicated that the use of all biomarkers and age improved the overall accuracy and sensitivity of all models. With these predictors, the QDA and RF models yielded the highest accuracy (0.9062), which was substantially higher than the obtained with the GLM (0.8750). The QDA model was also the best in terms of sensitivity (0.9512) followed by RF (0.9268) and LDA (0.9268). 
+
+```{r table3, echo=FALSE, warning=FALSE}
+load("rda/model_i_perf.rda")
+
+names(model_i_perf) <- c("Model", "Accuracy", "Sensitivity", "Specificity")
+
+model_i_perf %>% 
+  kbl(caption = "Performance of models with all biomarkers and age as predictors", booktabs = TRUE) %>%
+  kable_classic(latex_options = "hold_position")
+
+```
+
+In general, the specificity of these models is lower than the obtained with only three biomarkers as predictors. These results suggested that including all biomarkers could lead to a more significant amount of false-positive diagnoses. However, this might not be bad since false negatives could have much worse consequences, such as lack of an early diagnosis and treatment. 
+
+# 4. Discussion 
+
+This project aimed to improve the predictions of cancer or benign diagnosis obtained with the regular linear regression model (GLM) used by Debernardi et al. (2020) and evaluate if the use of all suggested biomarkers yielded better predictions. The results indicated that when using the LYVE1, REG1B, TFF1, and creatinine concentrations and the patient age as predictors, the kNN and LDA models could predict better if a patient had cancer or a benign condition compared to the GLM model. However, the sensitivity of these models was comparable to the GLM model. In fact, the sensitivity of all model range between 0.8333-0.6667. This relatively low sensitivity could be attributed to the high variability of the concentrations of the biomarkers in some samples. For instance, the ordination with the Bray-Curtis distance in the PCoA (Fig. 4a) showed that some cancer samples were indistinguishable from the benign samples. 
+
+When including all six biomarkers (LYVE1, REG1B, TFF1, creatinine, plasma_CA19_9, and REGG1A), the accuracy and the sensitivity of the predictions increased, which suggested that the panel with the six proteins could serve as better predictors. However, the sample size (N=209) used in these models was substantially smaller, which reduced the statistical power. It would be helpful to collect more data and increase the number of samples with concentrations of the six biomarkers, improving statistical power and making the predictions more trustable. 
 
 
-# 4. Conclusion 
+# 5. Conclusion 
+
+This study demonstrated that different machine learning algorithms could be helpful to discriminate whether a patient had pancreatic ductal adenocarcinoma (PDAC) or another benign condition based on the concentration of some urine biomarkers and age reported by Debernardi et al. (2020). The study showed that kNN, LDA, QDA, and random forest could improve the predictions obtained with the GLM model used in the original research. This study also indicated that including the biomarkers REG1A and plasma_CA19_9 as predictors could substantially increase the accuracy and sensitivity of the predictions.   
+
+# 6. References  
+Debernardi, S., O’Brien, H., Algahmdi, A.S., Malats, N., Stewart, G.D., Pljesa-Ercegovac, M., Costello, E., Greenhalf, W., Saad, A., Roberts, R., Ney, A., Pereira, S.P., Kocher, H.M., Duffy, S., Oleg Blyuss, Crnogorac-Jurcevic, T., 2020. A combination of urinary biomarker panel and PancRISK score for earlier detection of pancreatic cancer: A case-control study. PLoS Med. 17, e1003489. https://doi.org/10.1371/journal.pmed.1003489
+
+Sarantis, P., Koustas, E., Papadimitropoulou, A., Papavassiliou, A.G., Karamouzis, M. V., 2020. Pancreatic ductal adenocarcinoma: Treatment hurdles, tumor microenvironment and immunotherapy. World J. Gastrointest. Oncol. 12, 173. https://doi.org/10.4251/WJGO.V12.I2.173
 
 
-# 5. References  

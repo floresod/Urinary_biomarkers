@@ -280,7 +280,7 @@ test_set <- data[ind_test,]
 train_set <- data[-ind_test,]
 
 
-#### Models not using REG1A and plasma_A19_9 ####
+#### Models NOT using REG1A and plasma_A19_9 ####
 
 #set x's and y in train set : remove unnecessary columns 
 train_x <- train_set %>%dplyr::select (-REG1A, -plasma_CA19_9, -sample_id, -y, -sex, -diagnosis)
@@ -640,6 +640,9 @@ model_i_perf <- model_i_perf %>%
   arrange(desc(Accuracy_i))
 #print
 model_i_perf
+
+#save model for PDF report 
+save(model_i_perf, file = "rda/model_i_perf.rda")
 
 
 
