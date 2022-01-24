@@ -26,7 +26,7 @@ options(digits = 4, scipen = 999)
 # file is saved as 'raw_data.csv' 
 
 #load data 
-raw_data <- read.csv(file = "data/raw_data.csv", check.names = FALSE)
+raw_data <- read.csv(file = "data/Debernardi et al 2020 data.csv", check.names = FALSE)
 
 #correct col1 name: sample_id
 colnames(raw_data)[1] <- "sample_id"
@@ -110,7 +110,8 @@ fig.1 <- table(raw_data$age, raw_data$diagnosis) %>% data.frame() %>%
   theme(legend.position = "bottom")
 #print
 fig.1
-#save 
+
+#save for PDF report 
 save(fig.1, file = "figs/fig.1")
 
 # proportion of cancer cases > 50 years 
@@ -132,10 +133,11 @@ fig.2 <- tidy_data %>%
   facet_grid(~sex) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+
 #print fig 2
 fig.2
 
-#save 
+#save for PDF report 
 save(fig.2, file = "figs/fig.2")
 
 
@@ -155,7 +157,7 @@ fig.3 <- tidy_data %>%
 
 #print figure 3 
 fig.3
-#save
+#save fro PDF report 
 save(fig.3, file = "figs/fig.3")
 
 
@@ -241,7 +243,7 @@ fig.4b <- mds_data %>%
   
 #print
 fig.4b
-#save
+#save for PDF report 
 save(fig.4b, file = "figs/fig.4b")
 
 #print fig.4 
@@ -250,10 +252,10 @@ ggarrange(fig.4a, fig.4b,
           ncol = 1, nrow = 2) %>%
   annotate_figure("Figure 4. PCoA using Bray-Curtis distance")
 
-### delete objects ### 
+### delete objects to free memory ### 
 rm(fig.1, fig.2, fig.3, fig.4a, fig.4b, column_details, matrix_hm, matrix_pcoa, mds_data, mds.res)
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 #### MODELS ####
 
 ## data for models ##
@@ -308,7 +310,7 @@ cm_glm <- confusionMatrix(pred_glm, reference = test_set$y)
 cm_glm
 
 
-#### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### 
+#### ### ### ### #### 
 
 #### Random forest ####
 set.seed(107, sample.kind = "Rounding")
@@ -340,8 +342,8 @@ rf_model$finalModel$importance %>% data.frame() %>%
 #this indicates sex is a bad predictor, so we will remove it 
 
 
+#### ### ### ###
 
-#### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### #### ### ### ### 
 #### Knn model #### 
 train_control <- trainControl(method = "repeatedcv", repeats = 5)
 set.seed(7, sample.kind = "Rounding")
@@ -367,7 +369,8 @@ cm_knn <- confusionMatrix(pred_knn, reference = test_set$y)
 cm_knn
 
 
-#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ### 
+#### ### ### ### 
+
 ### LDA model ####
 if(!require(MASS)) install.packages("MASS", repos = "http://cran.us.r-project.org")
 library(MASS)
@@ -387,7 +390,8 @@ cm_lda <- confusionMatrix(pred_lda, reference = test_set$y)
 cm_lda
 
 
-#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ### 
+#### ### ### ### 
+
 #### QDA model #### 
 set.seed(150, sample.kind = "Rounding")
 qda_model <- train(x = train_x, y = train_y, 
@@ -406,7 +410,7 @@ cm_qda <- confusionMatrix(pred_qda, reference = test_set$y)
 cm_qda
 
 
-#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###  
+#### ### ### ### 
 
 #### Bayesian Generalized Linear Model  #### 
 if(!require(arm)) install.packages("arm", repos = "http://cran.us.r-project.org")
@@ -428,7 +432,7 @@ cm_bglm <- confusionMatrix(pred_bglm, reference = test_set$y)
 cm_bglm
 
 
-#### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###
+#### ### ### ### 
 #### Support Vector Machines with Linear Kernel Model #### 
 if(!require(kernlab)) install.packages("kernlab", repos = "http://cran.us.r-project.org")
 library(kernlab)
@@ -456,6 +460,8 @@ acc_svm
 cm_svm <- confusionMatrix(pred_svm, reference = test_set$y)
 cm_svm
 
+
+#### ### ### ### #### 
 
 #### ENSEMBLE #### 
 pred_ens <- data.frame(pred_glm, pred_bglm, pred_lda, pred_qda, pred_rf, pred_knn, pred_svm) %>% 
@@ -504,7 +510,7 @@ save(model_perf, file = "rda/model_perf.rda")
 
 #### ### ### ### #### ### ### ### ### #### ### ### ### #### ### ### ### ###
 
-#### MODEL USING other biomarkers  ########
+#### MODEL USING ALL biomarkers  ########
 
 #filter out entries with NA values 
 data2 <- data %>% 
@@ -516,6 +522,8 @@ ind_test <- createDataPartition(data2$y, times = 1, p = 0.30, list = FALSE)
 test_set <- data2[ind_test,] %>% dplyr::select(-sex, -sample_id)
 train_x <- data2[-ind_test,] %>% dplyr::select(-sex, -sample_id, -y, -diagnosis)
 train_y <- data2[-ind_test,]$y
+
+#### ### ### ### #### 
 
 #### GLM MODEL #### 
 set.seed(377, sample.kind = "Rounding")
@@ -530,6 +538,7 @@ pred_glm <- predict(model_glm, test_set)
 cm_glm <- confusionMatrix(pred_glm, reference = test_set$y)
 cm_glm
 
+#### ### ### ### ####
 
 #### Bayesian GLM #### 
 set.seed(289, sample.kind = "Rounding")
@@ -557,6 +566,8 @@ pred_rf <- predict(model_rf, test_set)
 cm_rf <- confusionMatrix(pred_rf, reference = test_set$y)
 cm_rf
 
+#### ### ### ### ####
+
 #### LDA model #### 
 set.seed(414, sample.kind = "Rounding")
 model_lda <- train(x = train_x, y = train_y, 
@@ -568,6 +579,8 @@ pred_lda <- predict(model_lda, test_set)
 cm_lda <- confusionMatrix(pred_lda, reference = test_set$y)
 cm_lda
 
+#### ### ### ### ####
+
 #### QDA MODEL #### 
 set.seed(425, sample.kind = "Rounding")
 model_qda <- train(x =train_x, y = train_y, 
@@ -578,6 +591,8 @@ pred_qda <- predict(model_qda, test_set)
 #performance 
 cm_qda <- confusionMatrix(pred_qda, test_set$y)
 cm_qda
+
+#### ### ### ### ####
 
 #### KNN model ####
 set.seed(436, sample.kind = "Rounding")
@@ -592,6 +607,8 @@ pred_knn <- predict(model_knn, test_set)
 #performance 
 cm_knn <- confusionMatrix(pred_knn, test_set$y)
 cm_knn
+
+#### ### ### ### ####
 
 #### SVM linear kernel model ####
 temp_train <- train_x %>% 
@@ -608,6 +625,9 @@ pred_svm <- predict(model_svm, test_set)
 #performance
 cm_svm <- confusionMatrix(pred_svm, test_set$y)
 cm_svm
+
+
+#### ### ### ### ####
 
 #### ENSEMBLE ### 
 #predictions
@@ -643,13 +663,3 @@ model_i_perf
 
 #save model for PDF report 
 save(model_i_perf, file = "rda/model_i_perf.rda")
-
-
-
-### analysis of errors ### 
-test_sex <- data2[ind_test,]$sex
-test_y <- test_set$y
-
-errors <- pred_ens_i %>% 
-  mutate(sex = test_sex, 
-         y = test_y)

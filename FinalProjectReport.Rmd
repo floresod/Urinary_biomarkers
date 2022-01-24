@@ -182,7 +182,8 @@ When including all six biomarkers (LYVE1, REG1B, TFF1, creatinine, plasma_CA19_9
 
 This study demonstrated that different machine learning algorithms could be helpful to discriminate whether a patient had pancreatic ductal adenocarcinoma (PDAC) or another benign condition based on the concentration of some urine biomarkers and age reported by Debernardi et al. (2020). The study showed that kNN, LDA, QDA, and random forest could improve the predictions obtained with the GLM model used in the original research. This study also indicated that including the biomarkers REG1A and plasma_CA19_9 as predictors could substantially increase the accuracy and sensitivity of the predictions.   
 
-# 6. References  
+# 6. References 
+
 Debernardi, S., O’Brien, H., Algahmdi, A.S., Malats, N., Stewart, G.D., Pljesa-Ercegovac, M., Costello, E., Greenhalf, W., Saad, A., Roberts, R., Ney, A., Pereira, S.P., Kocher, H.M., Duffy, S., Oleg Blyuss, Crnogorac-Jurcevic, T., 2020. A combination of urinary biomarker panel and PancRISK score for earlier detection of pancreatic cancer: A case-control study. PLoS Med. 17, e1003489. https://doi.org/10.1371/journal.pmed.1003489
 
 Sarantis, P., Koustas, E., Papadimitropoulou, A., Papavassiliou, A.G., Karamouzis, M. V., 2020. Pancreatic ductal adenocarcinoma: Treatment hurdles, tumor microenvironment and immunotherapy. World J. Gastrointest. Oncol. 12, 173. https://doi.org/10.4251/WJGO.V12.I2.173
